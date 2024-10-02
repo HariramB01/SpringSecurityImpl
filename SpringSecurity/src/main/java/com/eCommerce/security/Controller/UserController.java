@@ -1,6 +1,8 @@
 package com.eCommerce.security.Controller;
 
 
+import com.eCommerce.base_domains.Entity.User;
+import com.eCommerce.security.DTO.UserDTO;
 import com.eCommerce.security.Request.LoginRequest;
 import com.eCommerce.security.Response.LoginResponse;
 import com.eCommerce.security.Service.UserService;
@@ -8,19 +10,13 @@ import com.eCommerce.security.jwt.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping
@@ -40,16 +36,21 @@ public class UserController {
         return "Hello";
     }
 
-    @PreAuthorize("hasRole('USER')")
     @GetMapping("/ur")
     public String user(){
         return "Hello! user";
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/ar")
     public String admin(){
         return "Hello! admin";
+    }
+
+    @PostMapping("/create")
+    public ResponseEntity<User> createUser(@RequestBody UserDTO userDTO) {
+        User user = new User(userDTO.getUsername(), userDTO.getPassword());
+        User createdUser = userService.createUser(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
 
 
@@ -67,26 +68,33 @@ public class UserController {
             map.put("status", false);
             return new ResponseEntity<Object>(map, HttpStatus.NOT_FOUND);
         }
+//
+//        SecurityContextHolder.getContext().setAuthentication(authentication);
+//
+//        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-
-        String jwtToken = jwtUtils.generateTokenFromUsername(userDetails);
+        String jwtToken = jwtUtils.generateTokenFromUsername(loginRequest.getUsername());
 
 //        List<String> roles = userDetails.getAuthorities().stream()
 //                .map(item -> item.getAuthority())
 //                .collect(Collectors.toList());
 
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList();
+//        List<String> roles = userDetails.getAuthorities().stream()
+//                .map(GrantedAuthority::getAuthority)
+//                .toList();
 
-        LoginResponse response;
-        response = new LoginResponse(userDetails.getUsername(), roles, jwtToken);
+        LoginResponse response = new LoginResponse(loginRequest.getUsername(), jwtToken);
 
         return ResponseEntity.ok(response);
 
+    }
+
+    @GetMapping("/validate")
+    public String validateToken(@RequestParam("token") String token) {
+        if(jwtUtils.validateJwtToken(token)){
+            return "Token is valid";
+        }
+        return "Invalid";
     }
 
 
