@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
-@RequestMapping
+@RequestMapping("/api/security")
 public class UserController {
 
     @Autowired
@@ -54,7 +54,7 @@ public class UserController {
     }
 
 
-    @PostMapping("/api/signin")
+    @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest){
         Authentication authentication;
         try{
