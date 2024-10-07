@@ -4,23 +4,31 @@ package com.eCommerce.security.jwt;
 
 import com.eCommerce.base_domains.Entity.User;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class CustomUserDetails implements UserDetails {
 
     private String username;
     private String password;
+    private Set<GrantedAuthority> authorities;
 
-    public CustomUserDetails(User userCredential) {
-        this.username = userCredential.getUsername();
-        this.password = userCredential.getPassword();
+
+    public CustomUserDetails(User user) {
+        this.username = user.getUserName();
+        this.password = user.getPassword();
+        this.authorities = user.getRoles().stream()
+                .map(role -> new SimpleGrantedAuthority(role.getRole())) // Prefix role
+                .collect(Collectors.toSet());
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return null;
+        return authorities;
     }
 
     @Override

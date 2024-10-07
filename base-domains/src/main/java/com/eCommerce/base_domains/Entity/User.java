@@ -1,49 +1,37 @@
 package com.eCommerce.base_domains.Entity;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
+import lombok.*;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-@Entity
-@Table(name = "users")
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 @Setter
-public class User{
-
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
+@Entity
+@Table(name= "User")
+public class User {
     @Id
-    @Column(name = "username", length = 50, nullable = false, unique = true)
-    private String username;
-
-    @Column(name = "password", length = 500, nullable = false)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+    private String userName;
     private String password;
-//
-//    @Column(name = "enabled", nullable = false)
-//    private boolean enabled;
-
-//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-//    @JsonManagedReference
-//    private Set<Authority> authorities = new HashSet<>();
+    private String email;
 
 
-//    @Override
-//    public Collection<? extends GrantedAuthority> getAuthorities() {
-//        return authorities.stream()
-//                .map(authority -> new SimpleGrantedAuthority(authority.getAuthority()))
-//                .collect(Collectors.toList());
-//    }
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "users_role",
+            joinColumns = @JoinColumn(name = "cust_id", referencedColumnName = "id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id", referencedColumnName = "id"))
+    Set<Role> roles = new HashSet<>();
+
+
+    public void setRoles(Role roles) {
+        this.roles.add(roles);
+    }
 
 
 }

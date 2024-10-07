@@ -3,16 +3,16 @@ package com.eCommerce.security.DTO;
 
 import lombok.*;
 
-import java.util.List;
-
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 @Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
 public class UserDTO {
-    private String username;
+
+    private String userName;
     private String password;
-    private List<String> authorities; // List of authority names
+    private String email;
+    private String role;
 
 }

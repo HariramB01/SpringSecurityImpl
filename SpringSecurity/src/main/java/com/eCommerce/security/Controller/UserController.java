@@ -7,20 +7,28 @@ import com.eCommerce.security.Request.LoginRequest;
 import com.eCommerce.security.Response.LoginResponse;
 import com.eCommerce.security.Service.UserService;
 import com.eCommerce.security.jwt.JwtUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/security")
 public class UserController {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -32,11 +40,13 @@ public class UserController {
     private UserService userService;
 
     @GetMapping("/hello")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public String userController(){
         return "Hello";
     }
 
     @GetMapping("/ur")
+    @PreAuthorize("hasAuthority('ROLE_USER')")
     public String user(){
         return "Hello! user";
     }
@@ -46,48 +56,86 @@ public class UserController {
         return "Hello! admin";
     }
 
-    @PostMapping("/create")
-    public ResponseEntity<User> createUser(@RequestBody UserDTO userDTO) {
-        User user = new User(userDTO.getUsername(), userDTO.getPassword());
-        User createdUser = userService.createUser(user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
+    @GetMapping("/admin")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public String getAllAdmin() {
+        return "Get All By Admin";
     }
 
+    @GetMapping("/user")
+    @PreAuthorize("hasAuthority('ROLE_USER')")
+    public String getAll() {
+        return "Get All By User";
+    }
+
+    @PostMapping("/create")
+    public ResponseEntity<Object> registerUser(@RequestBody UserDTO userDto) {
+        User users = userService.save(userDto);
+        if (users == null)
+            return generateResponse("Not able to save user", HttpStatus.BAD_REQUEST, userDto);
+        else
+            return generateResponse("User saved successfully: " + users.getId(), HttpStatus.OK, users);
+    }
+
+
+
+    public ResponseEntity<Object> generateResponse(String message, HttpStatus st, Object responseobj) {
+
+        Map<String, Object> map = new HashMap<String, Object>();
+        map.put("message", message);
+        map.put("Status", st.value());
+        map.put("data", responseobj);
+
+        return new ResponseEntity<Object>(map, st);
+    }
 
     @PostMapping("/signin")
-    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest){
+    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
+        logger.info("Checking the received login request data: {}", loginRequest.toString());
+
         Authentication authentication;
-        try{
-            authentication = authenticationManager
-                    .authenticate(new UsernamePasswordAuthenticationToken
-                            (loginRequest.getUsername(), loginRequest.getPassword()));
+        try {
+            // Attempt authentication
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getUserName(), loginRequest.getPassword())
+            );
+        } catch (AuthenticationException e) {
+            logger.error("Authentication failed for user: {}", loginRequest.getUserName(), e);
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put("message", "Bad Credentials");
+            responseMap.put("status", false);
+            return new ResponseEntity<>(responseMap, HttpStatus.UNAUTHORIZED);
         }
-        catch (AuthenticationException e){
-            Map<String, Object> map = new HashMap<>();
-            map.put("message", "Bad Credentials");
-            map.put("status", false);
-            return new ResponseEntity<Object>(map, HttpStatus.NOT_FOUND);
-        }
-//
+
 //        SecurityContextHolder.getContext().setAuthentication(authentication);
-//
-//        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-        String jwtToken = jwtUtils.generateTokenFromUsername(loginRequest.getUsername());
-
-//        List<String> roles = userDetails.getAuthorities().stream()
-//                .map(item -> item.getAuthority())
-//                .collect(Collectors.toList());
-
-//        List<String> roles = userDetails.getAuthorities().stream()
+        String username = authentication.getName();
+//        Set<String> roles = authentication.getAuthorities()
+//                .stream()
 //                .map(GrantedAuthority::getAuthority)
-//                .toList();
+//                .collect(Collectors.toSet());
 
-        LoginResponse response = new LoginResponse(loginRequest.getUsername(), jwtToken);
 
+        String role =authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority).collect(Collectors.toSet()).iterator().next();
+
+        // Generate JWT Token
+        String jwtToken;
+        try {
+            jwtToken = jwtUtils.generateTokenFromUsernameAndRoles(username, role);
+            logger.debug("JWT Token generated successfully for user: {}", username);
+        } catch (Exception e) {
+            logger.error("Failed to generate JWT Token for user: {}", username, e);
+            return new ResponseEntity<>("Token generation failed", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        // Build the response
+        LoginResponse response = new LoginResponse(username, jwtToken);
+        logger.info("User signed in successfully: {}", username);
         return ResponseEntity.ok(response);
-
     }
+
+
 
     @GetMapping("/validate")
     public String validateToken(@RequestParam("token") String token) {
